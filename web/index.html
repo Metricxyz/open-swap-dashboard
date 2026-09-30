@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Open Metric Dashboard</title>
+  <link rel="stylesheet" href="/static/app.css?v=52">
+  <script id="plotlyScript" src="https://cdn.plot.ly/plotly-2.35.2.min.js" async onerror="this.dataset.failed = 'true'"></script>
+  <script type="module" src="/static/app.js?v=79"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="app-body">
+      <aside id="sidebar" class="sidebar" aria-label="Pool management">
+        <details class="sidebar-section system-section">
+          <summary class="system-summary mono">
+            <span id="systemLamp" class="status-lamp idle"></span>
+            <span id="systemStatus">INITIALIZING</span>
+            <span><b id="systemPoolCount">0</b> pools</span>
+            <span><b id="systemErrorCount">0</b> errors</span>
+            <span id="systemActivity">Starting</span>
+          </summary>
+          <dl class="system-readout mono">
+            <div class="activity-line"><dt>ACTIVITY</dt><dd id="backendActivity">STARTING INDEXER</dd></div>
+          </dl>
+        </details>
+
+        <section class="sidebar-section pool-browser">
+          <div class="pool-list-controls" aria-label="Pool list display controls">
+            <strong>POOLS</strong>
+            <div class="pnl-mode-controls" role="group" aria-label="Pool list PnL mode">
+              <span>PNL:</span>
+              <button id="listPnlFlow" class="caption-button selected" type="button" aria-pressed="true">FLOW</button>
+              <button id="listPnlMtm" class="caption-button" type="button" aria-pressed="false">MTM</button>
+            </div>
+            <div id="listWindowControls" class="window-controls list-window-controls" aria-label="Pool list time window">
+              <button type="button" data-hours="6">6H</button>
+              <button type="button" data-hours="24" class="selected">24H</button>
+              <button type="button" data-hours="168">7D</button>
+              <button type="button" data-hours="720">30D</button>
+              <button type="button" data-custom-window>CUSTOM</button>
+            </div>
+            <button id="addPoolButton" class="caption-button primary" type="button">+ ADD POOL</button>
+          </div>
+          <div id="poolManagement" class="pool-management" aria-label="Configured pools"></div>
+        </section>
+
+        <section class="sidebar-section sidebar-tools">
+          <div class="section-caption">TOOLS</div>
+          <button id="rpcConfigButton" type="button">NETWORK CONFIGURATION</button>
+        </section>
+      </aside>
+      <button id="sidebarScrim" class="sidebar-scrim hidden" type="button" aria-label="Close pool navigator"></button>
+
+      <div class="workspace-shell">
+        <header class="workspace-toolbar">
+          <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="false">POOLS</button>
+          <div>
+            <span class="workspace-label">WORKSPACE</span>
+            <strong id="workspaceTitle">POOL MONITOR</strong>
+          </div>
+          <div id="windowControls" class="window-controls" aria-label="Time window">
+            <button type="button" data-hours="6">6H</button>
+            <button type="button" data-hours="24" class="selected">24H</button>
+            <button type="button" data-hours="168">7D</button>
+            <button type="button" data-hours="720">30D</button>
+            <button type="button" data-custom-window>CUSTOM</button>
+          </div>
+        </header>
+
+        <main>
+          <div id="activityStatus" class="activity-status">Checking status…</div>
+          <div id="chartAvailability" role="status"></div>
+          <div id="notice" class="notice hidden" role="status"></div>
+
+          <section id="emptyState" class="empty-state hidden">
+            <div class="empty-icon" aria-hidden="true">□</div>
+            <h1>NO POOLS CONFIGURED</h1>
+            <p>Add a two-asset EVM pool to begin indexing confirmed transfers and calculating Flow and MTM PnL.</p>
+            <p id="emptyEnvioHint" class="hidden">Start with your Envio HyperSync API key: indexing needs it, and the <a href="https://envio.dev/app/api-tokens" target="_blank" rel="noreferrer">free tier</a> is enough.</p>
+            <div class="empty-actions">
+              <button id="emptyEnvioButton" class="primary hidden" type="button">ADD ENVIO KEY</button>
+              <button id="emptyAddButton" class="primary" type="button">ADD FIRST POOL</button>
+            </div>
+          </section>
+
+          <section id="dashboard" class="dashboard hidden">
+            <div class="pool-header">
+              <div>
+                <span id="poolChain" class="field-label"></span>
+                <h1 id="poolTitle"></h1>
+                <a id="poolAddress" class="mono" target="_blank" rel="noreferrer"></a>
+              </div>
+              <div class="pool-header-actions" role="group" aria-label="Selected pool actions">
+                <button id="editPoolButton" class="primary" type="button">EDIT POOL</button>
+                <button id="removePoolButton" class="danger" type="button">REMOVE POOL</button>
+              </div>
+            </div>
+
+            <div class="metrics">
+              <article><span>BALANCES</span><strong id="balancesMetric" class="balance-values">—</strong><small id="balanceBlock"></small></article>
+              <article><span>VOLUME</span><strong id="volumeMetric">—</strong><small id="swapCountMetric"></small></article>
+              <article><span>FLOW PNL</span><strong id="flowMetric">—</strong><small>EXECUTION-TIME VALUE</small></article>
+              <article><span>MTM PNL</span><strong id="mtmMetric">—</strong><small id="mtmAsOf">WINDOWED INVENTORY</small></article>
+            </div>
+
+            <div class="coverage-row">
+              <span>VALUATION COVERAGE</span>
+              <div class="progress"><i id="coverageBar"></i></div>
+              <strong id="coverageText">—</strong>
+            </div>
+
+            <div class="chart-toolbar">
+              <details id="plotConfiguration" class="plot-configuration">
+                <summary>CONFIGURE PLOTS</summary>
+                <div class="plot-configuration-menu" aria-label="Visible plots">
+                  <label><input type="checkbox" data-plot="pnl" checked>PNL HISTORY</label>
+                  <label><input type="checkbox" data-plot="price" checked>PRICE HISTORY</label>
+                  <label><input type="checkbox" data-plot="balance">BALANCES</label>
+                  <label><input type="checkbox" data-plot="volume">CUMULATIVE USD VOLUME</label>
+                  <div class="plot-size-filter">
+                    <label><input id="hideSmallSwaps" type="checkbox">HIDE SWAPS &lt;</label>
+                    <input id="minimumSwapUsd" class="mono" type="number" min="0" step="any" value="100" disabled aria-label="Minimum visible swap size in USD">
+                    <span>USD</span>
+                  </div>
+                </div>
+              </details>
+            </div>
+
+            <div id="chartGrid" class="chart-grid">
+              <article class="panel chart-panel" data-plot-panel="pnl"><div class="panel-title"><h2>PNL HISTORY</h2><div class="chart-panel-controls"><span>USD</span><button class="chart-fullscreen" data-fullscreen-chart="pnlChart" type="button">FULL SCREEN</button></div></div><div id="pnlChart" class="chart"></div></article>
+              <article class="panel chart-panel" data-plot-panel="price"><div class="panel-title"><h2>PRICE HISTORY</h2><div class="chart-panel-controls"><span id="priceChartUnit"></span><span class="chart-interaction-hint">CTRL+CLICK TRADE → EXPLORER</span><button class="chart-fullscreen" data-fullscreen-chart="priceChart" type="button">FULL SCREEN</button></div></div><div id="priceChart" class="chart"></div></article>
+              <article class="panel chart-panel hidden" data-plot-panel="balance"><div class="panel-title"><h2>BALANCE HISTORY</h2><div class="chart-panel-controls"><span>NATIVE UNITS</span><button class="chart-fullscreen" data-fullscreen-chart="balanceChart" type="button">FULL SCREEN</button></div></div><div id="balanceChart" class="chart"></div></article>
+              <article class="panel chart-panel hidden" data-plot-panel="volume"><div class="panel-title"><h2>CUMULATIVE USD VOLUME</h2><div class="chart-panel-controls"><span>USD</span><button class="chart-fullscreen" data-fullscreen-chart="volumeChart" type="button">FULL SCREEN</button></div></div><div id="volumeChart" class="chart"></div></article>
+            </div>
+
+            <details class="panel table-panel collapsible-panel">
+              <summary class="panel-title"><h2>TOP COUNTERPARTIES</h2><span><button id="counterpartySide" class="caption-button" type="button"></button><b id="counterpartyCount"></b><i>CLICK TO EXPAND</i></span></summary>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>COUNTERPARTY</th><th>SWAPS</th><th title="Distinct wallets that signed these swap transactions">UNIQUE SIGNERS</th><th>SWAP SHARE</th><th>VOLUME</th><th>VOLUME SHARE</th><th>AVG EDGE</th></tr></thead>
+                  <tbody id="counterpartiesBody"></tbody>
+                </table>
+              </div>
+            </details>
+
+            <article class="panel table-panel">
+              <div class="panel-title">
+                <h2>RECENT SWAPS</h2>
+                <div class="swap-pagination">
+                  <span id="recentCount"></span>
+                  <button id="previousSwaps" type="button">PREV</button>
+                  <span id="swapPage"></span>
+                  <button id="nextSwaps" type="button">NEXT</button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>TIME</th><th class="counterparty-column">COUNTERPARTY</th><th id="asset0Heading">ASSET 0</th><th id="asset1Heading">ASSET 1</th><th>REFERENCE</th><th>FLOW PNL</th><th>SWAP EDGE</th><th>TX</th></tr></thead>
+                  <tbody id="swapsBody"></tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          <section id="poolEditor" class="property-sheet hidden">
+            <div class="sheet-heading">
+              <div><span class="field-label">POOL PROPERTIES</span><h1 id="poolFormTitle">ADD POOL</h1></div>
+              <button id="cancelEdit" type="button">CANCEL</button>
+            </div>
+            <form id="poolForm">
+              <input id="editingPoolId" type="hidden">
+              <fieldset>
+                <legend>IDENTITY</legend>
+                <div class="form-grid identity-grid">
+                  <div id="metadataPicker" class="metadata-picker"><button id="metadataButton" type="button">BROWSE METRIC POOLS</button><span class="field-help">Pick a pool to fill in the form, or enter an address below.</span><div id="metadataPanel" class="metadata-panel hidden"><input id="metadataSearch" type="search" placeholder="Search pair, token, address, admin…"><div id="metadataPools" class="metadata-pools"></div></div></div>
+                  <hr class="form-divider">
+                  <label class="pool-address-field">Pool address<input id="poolAddressInput" required class="mono" placeholder="0x…"></label>
+                  <hr class="form-divider">
+                  <label>Chain<select id="poolChainInput" required></select></label>
+                  <label class="wide">Name <span>(generated from detected assets)</span><input id="poolNameInput" required maxlength="100" placeholder="Discover assets first"></label>
+                  <label>Start block <span>(blank = last 3 days)</span><input id="startBlockInput" type="number" min="0" placeholder="Automatic"></label>
+                  <label class="wide">MTM calculation<select id="mtmModeInput"><option value="balanced">50/50 — CEX price, swap fallback</option><option value="as_is">As is — actual starting mix</option></select></label>
+                </div>
+                <p class="field-help">Assets are detected from the pool's most frequent recent ERC-20 transfers.</p>
+                <p class="field-help">MTM compares trading against holding the selected opening mix. The 50/50 benchmark starts with equal asset values; Flow PnL is unaffected.</p>
+              </fieldset>
+
+              <fieldset class="asset-config hidden" data-position="0">
+                <legend>ASSET 1 <b class="detected"></b></legend>
+                <label>Token address<input class="token-address mono" required readonly placeholder="Detected automatically"></label>
+                <div class="price-row">
+                  <!-- Bybit is hidden until its API can reliably scan trades over a requested time span. -->
+                  <label>Price source<select class="price-kind"><option value="bybit" disabled hidden>Bybit retired — choose replacement</option><option value="none">None</option><option value="fixed">Fixed USD</option><option value="binance">Binance</option></select></label>
+                  <label>Market<input class="market mono" placeholder="ETHUSDT"></label>
+                  <label>Type<select class="market-type"><option value="spot">Spot</option><option value="futures">Futures</option></select></label>
+                  <label>Fixed USD<input class="fixed-price mono" type="number" min="0" step="any" placeholder="1.0" disabled></label>
+                </div>
+              </fieldset>
+
+              <fieldset class="asset-config hidden" data-position="1">
+                <legend>ASSET 2 <b class="detected"></b></legend>
+                <label>Token address<input class="token-address mono" required readonly placeholder="Detected automatically"></label>
+                <div class="price-row">
+                  <!-- Bybit is hidden until its API can reliably scan trades over a requested time span. -->
+                  <label>Price source<select class="price-kind"><option value="bybit" disabled hidden>Bybit retired — choose replacement</option><option value="none">None</option><option value="fixed">Fixed USD</option><option value="binance">Binance</option></select></label>
+                  <label>Market<input class="market mono" placeholder="USDCUSDT"></label>
+                  <label>Type<select class="market-type"><option value="spot">Spot</option><option value="futures">Futures</option></select></label>
+                  <label>Fixed USD<input class="fixed-price mono" type="number" min="0" step="any" placeholder="1.0" disabled></label>
+                </div>
+              </fieldset>
+
+              <div class="form-actions"><button type="button" id="previewPool">DISCOVER ASSETS</button><button type="submit" id="savePool" class="primary" disabled>ADD POOL</button></div>
+              <p id="poolFormStatus" class="form-status mono" aria-live="polite"></p>
+            </form>
+          </section>
+
+          <section id="rpcSettings" class="property-sheet hidden">
+            <div class="sheet-heading">
+              <div><span class="field-label">NETWORK PROPERTIES</span><h1>NETWORK CONFIGURATION</h1></div>
+              <button id="closeRpcSettings" type="button">CLOSE</button>
+            </div>
+            <fieldset class="envio-settings">
+              <legend>ENVIO HYPERSYNC</legend>
+              <div class="envio-settings-row">
+                <label>API key <span id="envioKeyState"></span><input id="envioApiKey" type="password" autocomplete="off" placeholder="Enter key"></label>
+                <label>Requests per minute<input id="envioRpmLimit" type="number" min="1" step="1" value="30"></label>
+                <span class="rpc-actions">
+                  <button id="saveEnvioSettings" type="button" class="primary">SAVE</button>
+                  <button id="clearEnvioKey" type="button" class="danger">CLEAR KEY</button>
+                </span>
+              </div>
+              <p id="envioResult" class="rpc-result mono" aria-live="polite"></p>
+            </fieldset>
+            <div id="rpcRows" class="rpc-list"></div>
+          </section>
+        </main>
+
+        <footer class="statusbar mono">
+          <span id="footerActivity">BACKEND STARTING</span>
+          <span id="footerStatus">READY</span>
+          <span id="footerRpc">RPC —</span>
+          <span id="footerBlock">CONFIRMED —</span>
+          <span id="footerSuccess">LAST OK —</span>
+          <span id="footerRefresh">REFRESH —</span>
+        </footer>
+      </div>
+    </div>
+  </div>
+  <div id="uiLock" class="ui-lock hidden" role="status" aria-label="Loading" aria-hidden="true" tabindex="-1"></div>
+</body>
+</html>

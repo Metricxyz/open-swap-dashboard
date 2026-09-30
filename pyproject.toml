@@ -1,0 +1,35 @@
+[project]
+name = "open-metric-dashboard"
+version = "0.1.0"
+description = "Minimal self-hosted EVM pool monitoring and PnL dashboard"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "duckdb>=1.4.0",
+    "fastapi>=0.116.0,<0.120.0",
+    "httpx>=0.28.0",
+    "pytz>=2026.1",
+    "uvicorn>=0.35.0",
+]
+
+[dependency-groups]
+dev = [
+    "coverage>=7.13.0",
+    "pytest>=9.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+markers = [
+    "integration: live tests that require public internet services",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["dashboard"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
