@@ -58,6 +58,7 @@ select { color-scheme: dark; }
 
 .ui-lock { position: fixed; inset: 0; z-index: 1000; background: rgba(5,7,9,.28); }
 .ui-lock:focus { outline: none; }
+.ui-lock::after { content: attr(aria-label); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 10px 16px; border: 1px solid var(--line-hi); background: var(--surface); color: var(--action); font: 700 11px/1.35 var(--data-font); letter-spacing: .035em; }
 
 .sidebar-toggle { display: none; min-height: 23px; padding: 1px 7px; background: var(--action-fill); color: #fff; }
 .app-body { min-height: 0; display: grid; grid-template-columns: 660px minmax(0, 1fr); position: relative; }

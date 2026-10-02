@@ -1018,12 +1018,18 @@ async function removePool(poolId) {
   if (!pool) return;
   try {
     if (!confirm(`Permanently remove ${pool.name} and its local data?`)) return;
+    // Deleting a pool with long history takes several seconds on the backend.
+    setUiLocked(true, `REMOVING ${pool.name.toUpperCase()}…`);
     await api(`/api/pools/${encodeURIComponent(poolId)}`, { method: "DELETE" });
     if (state.selectedPoolId === poolId) state.selectedPoolId = null;
     await refreshBootstrap();
+    setUiLocked(false);
     await showDashboard();
     notice("POOL REMOVED.");
-  } catch (error) { notice(error.message, true); }
+  } catch (error) {
+    setUiLocked(false);
+    notice(error.message, true);
+  }
 }
 
 // ==== Network configuration ====

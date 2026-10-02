@@ -225,7 +225,7 @@ test("runtime refresh pauses while locked and does not load a dashboard from ano
 test("pool removal requires confirmation and reports failures", async () => {
   const calls = [];
   globalThis.fetch = async (path, options) => {
-    calls.push({ path, options });
+    calls.push({ path, options, locked: state.uiLocked });
     return response({ detail: "offline" }, { ok: false, status: 503 });
   };
 
@@ -238,6 +238,9 @@ test("pool removal requires confirmation and reports failures", async () => {
   assert.equal(calls.length, 1);
   assert.equal(calls[0].path, "/api/pools/pool-a");
   assert.equal(calls[0].options.method, "DELETE");
+  // The slow backend delete runs behind the lock overlay, which is released when it fails.
+  assert.equal(calls[0].locked, true);
+  assert.equal(state.uiLocked, false);
   assert.equal(node("#notice").textContent, "offline");
 });
 

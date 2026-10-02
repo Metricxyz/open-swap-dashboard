@@ -37,7 +37,6 @@ class Database:
         self._analytics_cache_bytes = 0
         self.connection = duckdb.connect(str(self.path), config={
             'threads': max(1, int(os.getenv('OPEN_METRIC_DASHBOARD_DB_THREADS', min(4, os.cpu_count() or 1)))),
-            'memory_limit': os.getenv('OPEN_METRIC_DASHBOARD_DB_MEMORY_LIMIT', '512MiB'),
         })
         try:
             self._initialize()
@@ -674,6 +673,10 @@ class Database:
             )
 
         self.write(operation, invalidate=pool_id)
+        # A large delete loads the primary-key indexes into memory (~300 MiB for a big pool), where they stay until a
+        # checkpoint; its small WAL never triggers the automatic one, so release them now.
+        with self._lock:
+            self.connection.execute("CHECKPOINT")
 
     @staticmethod
     def _delete_pool_data(connection, pool_id: str) -> None:
