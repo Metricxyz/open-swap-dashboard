@@ -89,6 +89,8 @@ def test_dashboard_flow_and_mtm_match_windowed_swap_math(tmp_path):
     assert payload["swap_page"]["items"][1]["edge_bps"] == pytest.approx(909.090909)
     assert payload["swap_page"]["items"][0]["counterparty"].endswith("22")
     assert payload["swap_page"]["items"][0]["volume_usd"] == pytest.approx(60.0)
+    # 0x..11 traded $110 and 0x..22 traded $60, so the newest swap's counterparty ranks second by volume.
+    assert [item["counterparty_rank"] for item in payload["swap_page"]["items"]] == [2, 1]
     assert payload["explorer_address_url"] == "https://basescan.org/address/{address}"
 
     summaries = pool_summaries(db, db.list_pools())
@@ -142,6 +144,7 @@ def test_unpriced_swaps_are_visible_but_excluded_from_pnl(tmp_path):
     assert payload["swap_page"]["items"][0]["flow_pnl"] is None
     assert payload["swap_page"]["items"][0]["edge_bps"] is None
     assert payload["swap_page"]["items"][0]["counterparty"] is None
+    assert payload["swap_page"]["items"][0]["counterparty_rank"] is None
     assert payload["swap_page"]["items"][0]["volume_usd"] is None
     db.close()
 

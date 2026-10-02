@@ -81,7 +81,7 @@ def test_database_pool_rpc_pause_rebuild_and_delete_lifecycle(tmp_path):
     db.clear_rpc_override("base")
     assert db.rpc_overrides() == {}
 
-    assert db.envio_settings() == {"api_key": None, "rpm_limit": 30}
+    assert db.envio_settings() == {"api_key": None, "rpm_limit": 15}
     db.set_envio_settings(api_key="first-key", rpm_limit=45)
     db.set_envio_settings(api_key=None, rpm_limit=20)
     assert db.envio_settings() == {"api_key": "first-key", "rpm_limit": 20}

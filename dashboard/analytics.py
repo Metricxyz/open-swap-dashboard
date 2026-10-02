@@ -285,7 +285,19 @@ def _sample(db, source, columns, extrema, *, side=False):
 def _swap_page(db, source, page):
     total = db.row(f'SELECT count(*) AS n FROM ({source})')['n']
     page = min(max(0, page), max(0, (total - 1) // PAGE_SIZE))
-    items = db.rows(f'SELECT {SWAP_COLUMNS} FROM ({source}) ORDER BY ordering DESC LIMIT {PAGE_SIZE} OFFSET ?', [page * PAGE_SIZE])
+    # counterparty_rank: the counterparty's place by volume among all counterparties in the page's window,
+    # ordered like the counterparties table.
+    items = db.rows(f'''
+        WITH source AS ({source}), ranks AS (
+            SELECT nullif(lower(trim(counterparty)), '') AS address, row_number() OVER (
+                ORDER BY coalesce(sum(volume_usd), 0) DESC, count(*) DESC, coalesce(nullif(lower(trim(counterparty)), ''), '')
+            ) AS counterparty_rank
+            FROM source GROUP BY 1
+        )
+        SELECT {SWAP_COLUMNS}, ranks.counterparty_rank FROM source
+        LEFT JOIN ranks ON ranks.address = nullif(lower(trim(source.counterparty)), '')
+        ORDER BY ordering DESC LIMIT {PAGE_SIZE} OFFSET ?
+    ''', [page * PAGE_SIZE])
     for row in items:
         row['timestamp'] = _iso(row['timestamp'])
         for name in ('flow_pnl', 'edge_bps', 'volume_usd'):

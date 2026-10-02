@@ -26,6 +26,7 @@ const state = {
   hideSmallSwaps: localStorage.getItem("openPoolHideSmallSwaps") === "true",
   counterpartySide: localStorage.getItem("openPoolCounterpartySide") === "sender" ? "sender" : "recipient",
   addressLabels: JSON.parse(localStorage.getItem("openPoolAddressLabels") || "{}"),
+  knownAddresses: {},
   minimumSwapUsd: storedMinimumSwapUsd(),
   currentDashboard: null,
   chartRange: null,
@@ -52,6 +53,7 @@ if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded
 async function initialize() {
   bindEvents();
   pollStatus();
+  loadKnownAddresses();
   await Promise.all([refreshBootstrap({ initializeControls: true }), state.selectedPoolId ? loadDashboard() : Promise.resolve()]);
   // Also covers no pools at all: loadDashboard shows the empty state instead of waiting for the next refresh.
   if (!state.selectedPoolId || state.currentDashboard?.pool.id !== state.selectedPoolId) await loadDashboard();
@@ -295,7 +297,8 @@ function poolStatus(pool) {
     const chain = state.bootstrap?.chains.find((row) => row.key === pool.chain_key);
     const target = ingestion.target_block;
     const note = ingestion.wait_reason || ingestion.action || "";
-    if (target == null || !chain?.seconds_per_block) return { label: "INDEXING", tone: "working", title: note };
+    // A target at or below the indexed block is the head saved by the previous sync; the new head isn't known yet.
+    if (target == null || target <= ingestion.indexed_block || !chain?.seconds_per_block) return { label: "INDEXING", tone: "working", title: note };
     const from = Math.max(pool.start_block ?? 0, target - Math.round(3 * 86400 / chain.seconds_per_block));
     const pct = Math.floor(Math.min(1, Math.max(0, (ingestion.indexed_block - from + 1) / Math.max(1, target - from + 1))) * 100);
     return { label: `INDEXING ${pct}%`, tone: "working",
@@ -660,7 +663,7 @@ function renderSwaps(data) {
     ].join(" · ");
     return `<tr>
       <td>${escapeHtml(formatTime(row.timestamp))}</td>
-      <td class="counterparty-column">${counterpartyLink(row.counterparty, data.explorer_address_url)}</td>
+      <td class="counterparty-column">${counterpartyLink(row.counterparty, data.explorer_address_url)}${row.counterparty_rank == null ? "" : `<span class="counterparty-rank mono" title="Rank by volume among all counterparties in this window">TOP #${row.counterparty_rank}</span>`}</td>
       <td class="${signedClass(row.asset0_delta)}">${signed(row.asset0_delta)} ${escapeHtml(asset0.symbol)}</td>
       <td class="${signedClass(row.asset1_delta)}">${signed(row.asset1_delta)} ${escapeHtml(asset1.symbol)}</td>
       <td title="${escapeHtml(referenceTitle)}">${escapeHtml(reference)}</td>
@@ -1035,11 +1038,11 @@ function showRpcSettings() {
 }
 
 function renderRpcSettings() {
-  const envio = state.bootstrap?.envio || { configured: false, rpm_limit: 30 };
+  const envio = state.bootstrap?.envio || { configured: false, rpm_limit: 15 };
   $("#envioKeyState").textContent = envio.configured ? "(configured; blank keeps current)" : "(required for ingestion)";
   $("#envioApiKey").value = "";
   $("#envioApiKey").placeholder = envio.configured ? "Configured" : "Enter key";
-  $("#envioRpmLimit").value = envio.rpm_limit || 30;
+  $("#envioRpmLimit").value = envio.rpm_limit || 15;
   $("#clearEnvioKey").disabled = !envio.configured;
   $("#rpcRows").innerHTML = `<div class="rpc-table-heading"><span>CHAIN</span><span>ACTIVE ENDPOINT</span><span>CUSTOM OVERRIDE</span><span>ACTIONS</span></div>${(state.bootstrap?.chains || []).map((chain) => `
     <div class="rpc-row" data-chain="${escapeHtml(chain.key)}">
@@ -1179,6 +1182,22 @@ function toggleCounterpartySide(event) {
   if (state.currentDashboard) loadDashboard();
 }
 
+async function loadKnownAddresses() {
+  // Built-in tags for known aggregator routers; web/known_aggregators.json maps a name to its addresses.
+  try {
+    const response = await fetch("/static/known_aggregators.json", { cache: "no-cache" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const groups = await response.json();
+    state.knownAddresses = Object.fromEntries(Object.entries(groups).flatMap(([name, addresses]) => addresses.map((address) => [address.toLowerCase(), name])));
+  } catch (error) {
+    console.warn("Known aggregator tags unavailable:", error);
+    return;
+  }
+  if (!state.currentDashboard) return;
+  renderCounterparties(state.currentDashboard);
+  renderSwaps(state.currentDashboard);
+}
+
 function editAddressLabel(event) {
   // Labels are a per-browser convenience; they never reach the backend.
   const address = event.target.closest("[data-label-address]")?.dataset.labelAddress;
@@ -1306,9 +1325,11 @@ function compactAddress(value) { return value ? `${value.slice(0, 8)}…${value.
 function counterpartyLink(value, template) {
   const address = String(value || "").trim().toLowerCase();
   if (!address) return `<span class="muted">UNKNOWN</span>`;
+  // A user label wins over the built-in aggregator tag, so a wrong or stale tag can be overridden.
   const custom = state.addressLabels[address];
-  const label = escapeHtml(custom || compactAddress(address));
-  const className = custom ? "address-label" : "mono";
+  const known = state.knownAddresses[address];
+  const label = escapeHtml(custom || known || compactAddress(address));
+  const className = custom ? "address-label" : known ? "address-label known-address" : "mono";
   const editor = `<button class="label-button" type="button" data-label-address="${escapeHtml(address)}" title="${custom ? "Edit" : "Add"} label">✎</button>`;
   if (!template) return `<span class="${className}" title="${escapeHtml(address)}">${label}</span>${editor}`;
   const url = String(template).replace("{address}", address);
@@ -1325,4 +1346,4 @@ function notice(message, error = false) {
   if (!error) state.noticeTimer = setTimeout(() => node.classList.add("hidden"), 6000);
 }
 
-export { changeSwapPage, applyChartRange, discoverPool, editAddressLabel, loadMetadataPools, renderMetadataPools, selectMetadataPool, pollStatus, configurePlots, formatHoursAgo, formatWindowLabel, loadDashboard, notice, parseWindowHours, refreshRuntime, removePool, renderCounterparties, renderRpcSettings, renderSwaps, selectWindow, state, syncPriceInputs, toggleChartFullscreen, toggleCounterpartySide, selectListPnlMode };
+export { changeSwapPage, applyChartRange, discoverPool, editAddressLabel, loadKnownAddresses, loadMetadataPools, renderMetadataPools, selectMetadataPool, pollStatus, configurePlots, formatHoursAgo, formatWindowLabel, loadDashboard, notice, parseWindowHours, refreshRuntime, removePool, renderCounterparties, renderRpcSettings, renderSwaps, selectWindow, state, syncPriceInputs, toggleChartFullscreen, toggleCounterpartySide, selectListPnlMode };

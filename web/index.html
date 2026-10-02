@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>Open Metric Dashboard</title>
-  <link rel="stylesheet" href="/static/app.css?v=52">
+  <link rel="stylesheet" href="/static/app.css?v=55">
   <script id="plotlyScript" src="https://cdn.plot.ly/plotly-2.35.2.min.js" async onerror="this.dataset.failed = 'true'"></script>
-  <script type="module" src="/static/app.js?v=79"></script>
+  <script type="module" src="/static/app.js?v=85"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -225,7 +225,7 @@
               <legend>ENVIO HYPERSYNC</legend>
               <div class="envio-settings-row">
                 <label>API key <span id="envioKeyState"></span><input id="envioApiKey" type="password" autocomplete="off" placeholder="Enter key"></label>
-                <label>Requests per minute<input id="envioRpmLimit" type="number" min="1" step="1" value="30"></label>
+                <label>Requests per minute<input id="envioRpmLimit" type="number" min="1" step="1" value="15"></label>
                 <span class="rpc-actions">
                   <button id="saveEnvioSettings" type="button" class="primary">SAVE</button>
                   <button id="clearEnvioKey" type="button" class="danger">CLEAR KEY</button>

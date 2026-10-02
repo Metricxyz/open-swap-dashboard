@@ -26,28 +26,27 @@ class EnvioError(RuntimeError):
 # ==== Process-wide rate limiting ====
 
 class _RateLimiter:
+    # Spaces requests evenly at 60/rpm seconds apart: Envio answers 429 to bursts even under the per-minute budget.
     def __init__(self):
         self._lock = threading.Lock()
-        self._requests: deque[float] = deque()
+        self._next_at = 0.0
 
     def acquire(self, rpm_limit: int, *, stop=None, report=None) -> None:
-        while True:
-            with self._lock:
-                now = time.monotonic()
-                while self._requests and self._requests[0] <= now - 60:
-                    self._requests.popleft()
-                if len(self._requests) < rpm_limit:
-                    self._requests.append(now)
-                    return
-                delay = self._requests[0] + 60 - now
-            logger.info("envio rate limit reached rpm_limit=%s wait_seconds=%.1f", rpm_limit, delay)
-            if report:
-                report(f"Envio rate limit; eligible in {delay:.0f}s")
-            if stop is not None:
-                if stop.wait(delay):
-                    raise EnvioError("Shutdown requested")
-            else:
-                time.sleep(delay)
+        with self._lock:
+            now = time.monotonic()
+            start = max(now, self._next_at)
+            self._next_at = start + 60 / rpm_limit
+        delay = start - now
+        if delay <= 0:
+            return
+        logger.debug("envio rate limit spacing rpm_limit=%s wait_seconds=%.1f", rpm_limit, delay)
+        if report and delay >= 5:
+            report(f"Envio rate limit; eligible in {delay:.0f}s")
+        if stop is not None:
+            if stop.wait(delay):
+                raise EnvioError("Shutdown requested")
+        else:
+            time.sleep(delay)
 
 
 _RATE_LIMITER = _RateLimiter()
@@ -230,6 +229,9 @@ class EnvioClient:
                     f"HTTP {response.status_code} request_id={request_id or 'none'} {diagnostic}"
                 )
                 retry_after = response.headers.get("Retry-After")
+                # Envio's limit is per minute, so 429 backoff must span a minute rather than a few seconds.
+                if retry_after is None and response.status_code == 429:
+                    retry_after = min(60, 15 * attempt)
             except EnvioError:
                 raise
             except (httpx.HTTPError, ValueError) as exc:

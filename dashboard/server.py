@@ -47,7 +47,7 @@ class RpcTestInput(BaseModel):
 
 class EnvioSettingsInput(BaseModel):
     api_key: str | None = None
-    rpm_limit: int = Field(default=30, ge=1)
+    rpm_limit: int = Field(default=15, ge=1)
 
 
 class AssetInput(BaseModel):

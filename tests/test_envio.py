@@ -205,6 +205,12 @@ def test_retry_and_validation(monkeypatch):
     pages = list(envio.EnvioClient("secret", 17).transfer_pages(8453, OWNER, 100, 101))
     assert len(pages) == 1 and limits == [17, 17]
 
+    transport = HttpClient([Response({}, 429), Response({}, 429), Response(response_page())])
+    delays = []
+    monkeypatch.setattr(envio.time, "sleep", lambda delay: delays.append(delay))
+    list(envio.EnvioClient("secret", 17).transfer_pages(8453, OWNER, 100, 101))
+    assert delays == [15, 30]
+
     with pytest.raises(envio.EnvioError, match="Configure an Envio API key"):
         envio.EnvioClient("", 30)
     with pytest.raises(envio.EnvioError, match="must be positive"):
@@ -212,14 +218,14 @@ def test_retry_and_validation(monkeypatch):
 
 
 def test_rate_limiter_waits_and_nonretryable_http_fails_once(monkeypatch):
-    ticks = iter([0.0, 0.0, 61.0])
+    ticks = iter([0.0, 0.0, 0.5, 10.0])
     delays = []
     monkeypatch.setattr(envio.time, "monotonic", lambda: next(ticks))
     monkeypatch.setattr(envio.time, "sleep", lambda delay: delays.append(delay))
     limiter = envio._RateLimiter()
-    limiter.acquire(1)
-    limiter.acquire(1)
-    assert delays == [60.0]
+    for _ in range(4):
+        limiter.acquire(30)
+    assert delays == [2.0, 3.5]  # 2s spacing at 30 rpm; the 4th call arrives after its slot
 
     transport = HttpClient([Response({}, 401)])
     monkeypatch.setattr(envio.httpx, "Client", lambda **kwargs: transport)

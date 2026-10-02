@@ -22,6 +22,7 @@
   --good: #78a387;
   --warning: #7896b2;
   --danger: #bd7e82;
+  --known-tag: #a596d0;
   --ui-font: Tahoma, Arial, sans-serif;
   --data-font: Consolas, "Liberation Mono", monospace;
 }
@@ -230,9 +231,11 @@ th, td { padding: 6px 8px; text-align: right; border: 1px solid var(--line); whi
 th { color: var(--heading); background: var(--surface); font: 700 9px var(--ui-font); letter-spacing: .06em; }
 th:first-child, td:first-child { text-align: left; }
 th.counterparty-column, td.counterparty-column { text-align: left; }
+.counterparty-rank { margin-left: 6px; color: var(--muted); }
 td a { display: inline-block; padding: 1px 4px; border: 1px solid #5b4523; color: var(--action); text-decoration: none; }
 td a:hover { border-color: var(--selection-hi); background: var(--action-soft); color: #f4d99f; }
 td .address-label { display: inline-block; max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+td .known-address { color: var(--known-tag); border-color: #4a4266; }
 .label-button { min-height: 0; margin-left: 3px; padding: 0 4px; font-size: 10px; opacity: .45; }
 tr:hover .label-button, .label-button:focus-visible { opacity: 1; }
 .positive { color: var(--good) !important; }

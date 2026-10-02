@@ -50,7 +50,7 @@ globalThis.window = { innerWidth: 1200, addEventListener() {} };
 
 const {
   configurePlots, discoverPool, formatHoursAgo, formatWindowLabel, loadDashboard, notice, changeSwapPage, applyChartRange, pollStatus,
-  editAddressLabel, loadMetadataPools, parseWindowHours, renderMetadataPools, selectMetadataPool, refreshRuntime, removePool, renderCounterparties, renderRpcSettings, renderSwaps,
+  editAddressLabel, loadKnownAddresses, loadMetadataPools, parseWindowHours, renderMetadataPools, selectMetadataPool, refreshRuntime, removePool, renderCounterparties, renderRpcSettings, renderSwaps,
   selectWindow, state, syncPriceInputs, toggleChartFullscreen, toggleCounterpartySide, selectListPnlMode,
 } = await import("../app.js");
 
@@ -315,7 +315,8 @@ test("data column shows how much of the last 3 days ingestion has committed", as
   });
   state.status = { worker_alive: true, operation: {}, pools: {
     // 3 days of Base blocks = 129,600, so the window is blocks 70,400..200,000.
-    old: { ingestion: { state: "working", indexed_block: 200_000, target_block: 200_000 }, pricing: { state: "caught_up" } },
+    // After downtime the saved target is the old head, so there's no honest percentage until the new head is fetched.
+    old: { ingestion: { state: "queued", indexed_block: 200_000, target_block: 200_000 }, pricing: { state: "caught_up" } },
     // Started after the window opened, so only blocks 190,000..199,999 count.
     new: { ingestion: { state: "working", indexed_block: 194_999, target_block: 199_999 }, pricing: { state: "caught_up" } },
     unsynced: { ingestion: { state: "queued", indexed_block: -1, target_block: null }, pricing: { state: "queued" } },
@@ -326,7 +327,7 @@ test("data column shows how much of the last 3 days ingestion has committed", as
   const markup = node("#poolManagement").innerHTML;
   assert.match(markup, />DATA</);
   assert.doesNotMatch(markup, />SYNC<|>STATUS</);
-  assert.match(markup, /data-id="old"[\s\S]*?>INDEXING 100%</);
+  assert.match(markup, /data-id="old"[\s\S]*?>INDEXING<\/td>/);
   assert.match(markup, /data-id="new"[\s\S]*?title="Indexed through block 194,999 of 199,999 \(last 3 days\)">INDEXING 50%</);
   assert.match(markup, /data-id="unsynced"[\s\S]*?>INDEXING<\/td>/);
   state.status = null;
@@ -461,6 +462,35 @@ test("counterparty side toggle switches the grouping, persists it, and shows uni
 });
 
 
+test("known aggregator addresses are tagged with their own style and user labels override them", async () => {
+  const address = "0x" + "cd".repeat(20);
+  globalThis.fetch = async (url) => {
+    assert.equal(url, "/static/known_aggregators.json");
+    return { ok: true, json: async () => ({ "0x API": [address.toUpperCase().replace("0X", "0x")] }) };
+  };
+  state.addressLabels = {};
+  state.currentDashboard = {
+    pool: { assets: [{ symbol: "A" }, { symbol: "B" }] },
+    explorer_tx_url: "https://explorer.test/tx/{tx_hash}",
+    explorer_address_url: "https://explorer.test/address/{address}",
+    counterparties: { side: "recipient", total_swaps: 1, total_counterparties: 1, rows: [
+      { address, swap_count: 1, volume_usd: 1, avg_edge_bps: null, swap_share_pct: 100, volume_share_pct: 100 },
+    ] },
+    swap_page: { total: 0, page: 0, page_size: 100, items: [] },
+  };
+
+  await loadKnownAddresses();
+  assert.match(node("#counterpartiesBody").innerHTML, /class="address-label known-address"[^>]*>0x API ↗/);
+
+  state.addressLabels = { [address]: "Mine" };
+  renderCounterparties(state.currentDashboard);
+  assert.match(node("#counterpartiesBody").innerHTML, /class="address-label"[^>]*>Mine ↗/);
+  state.addressLabels = {};
+  state.knownAddresses = {};
+  delete globalThis.fetch;
+});
+
+
 test("address labels are saved in browser storage and replace the short address everywhere", () => {
   const address = "0x" + "ab".repeat(20);
   const stored = [];
@@ -474,7 +504,7 @@ test("address labels are saved in browser storage and replace the short address 
       { address, swap_count: 1, volume_usd: 1, avg_edge_bps: null, swap_share_pct: 100, volume_share_pct: 100 },
     ] },
     swap_page: { total: 1, page: 0, page_size: 100, items: [{ tx_hash: "0xtx", timestamp: "2026-08-31T12:00:00Z",
-      counterparty: address, asset0_delta: 1, asset1_delta: -1, asset0_price: 1, asset1_price: 1 }] },
+      counterparty: address, counterparty_rank: 3, asset0_delta: 1, asset1_delta: -1, asset0_price: 1, asset1_price: 1 }] },
   };
   const click = { target: { closest: () => ({ dataset: { labelAddress: address } }) } };
 
@@ -485,6 +515,8 @@ test("address labels are saved in browser storage and replace the short address 
     assert.match(node(body).innerHTML, /&lt;Arb bot&gt; ↗/);
     assert.match(node(body).innerHTML, new RegExp(`title="${address}"`));
   }
+
+  assert.match(node("#swapsBody").innerHTML, /class="counterparty-rank mono"[^>]*>TOP #3<\/span>/);
 
   globalThis.prompt = () => "";
   editAddressLabel(click);

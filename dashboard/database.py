@@ -73,7 +73,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS envio_settings (
                 singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
                 api_key VARCHAR,
-                rpm_limit INTEGER NOT NULL DEFAULT 30 CHECK (rpm_limit > 0),
+                rpm_limit INTEGER NOT NULL DEFAULT 15 CHECK (rpm_limit > 0),
                 updated_at TIMESTAMPTZ NOT NULL
             )
             """,
@@ -411,7 +411,7 @@ class Database:
 
     def envio_settings(self) -> dict[str, Any]:
         row = self.row("SELECT api_key, rpm_limit FROM envio_settings WHERE singleton = TRUE")
-        return row or {"api_key": None, "rpm_limit": 30}
+        return row or {"api_key": None, "rpm_limit": 15}
 
     def set_envio_settings(self, *, api_key: str | None, rpm_limit: int) -> None:
         current = self.envio_settings()

@@ -162,7 +162,7 @@ def test_api_route_contracts_cover_full_configuration_lifecycle(monkeypatch, tmp
     }
     empty_bootstrap = routes[("/api/bootstrap", "GET")]()
     assert empty_bootstrap["pools"] == []
-    assert empty_bootstrap["envio"] == {"configured": False, "rpm_limit": 30}
+    assert empty_bootstrap["envio"] == {"configured": False, "rpm_limit": 15}
     assert app.state.scheduler.status()["operation"]["message"] == "IDLE — SCHEDULER NOT STARTED"
     assert empty_bootstrap["summary_window_hours"] == 24
     assert str(routes[("/", "GET")]().path).endswith("web/index.html")
