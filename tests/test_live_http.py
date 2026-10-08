@@ -48,7 +48,7 @@ def test_real_uvicorn_serves_ui_api_and_enforces_csrf(tmp_path):
                     raise AssertionError("isolated Uvicorn server did not start within 15 seconds")
                 time.sleep(0.1)
 
-        assert len(bootstrap["chains"]) == 7 and bootstrap["pools"] == []
+        assert len(bootstrap["chains"]) == 10 and bootstrap["pools"] == []
         with urlopen(f"{base_url}/", timeout=2) as response:
             assert response.headers["Cache-Control"] == "no-store"
             assert b"Open Metric Dashboard" in response.read()

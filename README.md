@@ -2,7 +2,7 @@
 
 A small self-hosted dashboard for monitoring two-token EVM liquidity pools. It indexes ERC-20 transfers, reconstructs swaps and balances, and prices them against Binance to show volume, PnL, TVL, APR, and recent swaps.
 
-Everything runs as one Python process with a local DuckDB database. Supported chains: Ethereum, Base, Arbitrum One, Robinhood Chain, BNB Smart Chain, Polygon PoS, and Avalanche C-Chain.
+Everything runs as one Python process with a local DuckDB database. Supported chains: Ethereum, Base, Arbitrum One, Robinhood Chain, BNB Smart Chain, Polygon PoS, Avalanche C-Chain, HyperEVM, Monad, and MegaETH.
 
 ## Requirements
 

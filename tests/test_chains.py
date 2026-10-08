@@ -5,7 +5,8 @@ def test_chain_registry_is_complete_and_redacts_custom_rpc_credentials():
     rows = public_chain_rows({"base": "https://user:secret@example.test/key?token=secret"})
 
     assert {row["key"] for row in rows} == {
-        "ethereum", "base", "arbitrum", "robinhood", "bsc", "polygon", "avalanche"
+        "ethereum", "base", "arbitrum", "robinhood", "bsc", "polygon", "avalanche",
+        "hyperevm", "monad", "megaeth",
     }
     base = next(row for row in rows if row["key"] == "base")
     assert base["chain_id"] == 8453

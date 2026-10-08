@@ -121,6 +121,52 @@ CHAINS = {
             overlap_blocks=24,
             seconds_per_block=1.0,
         ),
+        Chain(
+            key="hyperevm",
+            name="HyperEVM",
+            chain_id=999,
+            native_symbol="HYPE",
+            explorer_tx_url="https://hyperevmscan.io/tx/{tx_hash}",
+            explorer_address_url="https://hyperevmscan.io/address/{address}",
+            public_rpcs=(
+                "https://rpc.hyperliquid.xyz/evm",
+                "https://hyperliquid.drpc.org",
+            ),
+            confirmations=12,
+            overlap_blocks=24,
+            seconds_per_block=1.0,
+        ),
+        Chain(
+            key="monad",
+            name="Monad",
+            chain_id=143,
+            native_symbol="MON",
+            explorer_tx_url="https://monadscan.com/tx/{tx_hash}",
+            explorer_address_url="https://monadscan.com/address/{address}",
+            public_rpcs=(
+                "https://rpc.monad.xyz",
+                "https://rpc-mainnet.monadinfra.com",
+                "https://monad-mainnet.drpc.org",
+            ),
+            confirmations=20,
+            overlap_blocks=40,
+            seconds_per_block=0.3,
+        ),
+        Chain(
+            key="megaeth",
+            name="MegaETH",
+            chain_id=4326,
+            native_symbol="ETH",
+            explorer_tx_url="https://mega.etherscan.io/tx/{tx_hash}",
+            explorer_address_url="https://mega.etherscan.io/address/{address}",
+            public_rpcs=(
+                "https://mainnet.megaeth.com/rpc",
+                "https://megaeth.drpc.org",
+            ),
+            confirmations=12,
+            overlap_blocks=24,
+            seconds_per_block=1.0,
+        ),
     )
 }
 
