@@ -77,7 +77,7 @@ CHAINS = {
             public_rpcs=("https://rpc.mainnet.chain.robinhood.com",),
             confirmations=64,
             overlap_blocks=128,
-            seconds_per_block=0.25,
+            seconds_per_block=0.1,
         ),
         Chain(
             key="bsc",
