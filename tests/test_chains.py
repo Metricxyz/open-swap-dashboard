@@ -1,4 +1,9 @@
+import os
+
+import pytest
+
 from dashboard.chains import CHAINS, public_chain_rows
+from dashboard.rpc import connect_rpc
 
 
 def test_chain_registry_is_complete_and_redacts_custom_rpc_credentials():
@@ -24,3 +29,18 @@ def test_chain_registry_is_complete_and_redacts_custom_rpc_credentials():
     assert all(row["confirmations"] > 0 and row["overlap_blocks"] > 0 for row in rows)
     assert public_chain_rows()[0]["has_custom_rpc"] is False
     assert len(CHAINS) == len(rows)
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(os.getenv("RUN_LIVE_INTEGRATION") != "1", reason="set RUN_LIVE_INTEGRATION=1")
+def test_robinhood_seconds_per_block_matches_chain():
+    # seconds_per_block turns the default three-day backfill and the seven-day
+    # discovery search into block counts, so it has to match the chain.
+    chain = CHAINS["robinhood"]
+    client, status = connect_rpc(chain.public_rpcs, chain.chain_id)
+    try:
+        start, end = client.block_headers([status.latest_block - 100_000, status.latest_block])
+    finally:
+        client.close()
+    measured = (end["timestamp"] - start["timestamp"]) / (end["number"] - start["number"])
+    assert chain.seconds_per_block == pytest.approx(measured, rel=0.25)
